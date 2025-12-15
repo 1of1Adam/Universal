@@ -9,13 +9,36 @@
 #!version = 1.7.5-gemini
 
 #[rewrite_local]
-# Apple TV / TV+ / Fitness 通用翻译规则
-^https?:\/\/(hls|hls-svod)\.itunes\.apple\.com\/itunes-assets\/(.+)\/([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12})\/(.+)\.webvtt\?(.*)subtype=Translate url script-response-body https://github.com/1of1Adam/Universal/releases/download/v1.7.5-gemini/Translate.response.gemini.v2.bundle.js
-
+# ========== Apple TV (购买/租借内容) ==========
+# M3U8 Master - 添加 subtype 参数
+^https?:\/\/(play|play-edge|hls)\.itunes\.apple\.com\/WebObjects\/(MZPlay|MZPlayLocal)\.woa\/hls\/playlist\.m3u8 url script-response-body https://github.com/DualSubs/Universal/releases/download/v1.7.5/Manifest.response.bundle.js
+# M3U8 Subtitles
+^https?:\/\/vod-(.+)-amt\.tv\.apple\.com\/itunes-assets\/(.+)\/([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12})\/(.+)_subtitles(_V\d)?\.m3u8\?(.*)subtype= url script-response-body https://github.com/DualSubs/Universal/releases/download/v1.7.5/Manifest.response.bundle.js
+# Composite Subtitles
+^https?:\/\/vod-(.+)-amt\.tv\.apple\.com\/itunes-assets\/(.+)\/([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12})\/(.+)\.webvtt\?(.*)subtype=(Official|External) url script-response-body https://github.com/DualSubs/Universal/releases/download/v1.7.5/Composite.Subtitles.response.bundle.js
+# Translate (Gemini)
 ^https?:\/\/vod-(.+)-amt\.tv\.apple\.com\/itunes-assets\/(.+)\/([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12})\/(.+)\.webvtt\?(.*)subtype=Translate url script-response-body https://github.com/1of1Adam/Universal/releases/download/v1.7.5-gemini/Translate.response.gemini.v2.bundle.js
 
+# ========== Apple TV+ (订阅内容) ==========
+# M3U8 Master
+^https?:\/\/(play|play-edge|hls)\.itunes\.apple\.com\/WebObjects\/(MZPlay|MZPlayLocal)\.woa\/hls\/subscription\/playlist\.m3u8 url script-response-body https://github.com/DualSubs/Universal/releases/download/v1.7.5/Manifest.response.bundle.js
+# M3U8 Subtitles
+^https?:\/\/(play|play-edge|hls)\.itunes\.apple\.com\/WebObjects\/(MZPlay|MZPlayLocal)\.woa\/hls\/subscription\/stream\/playlist\.m3u8\?(.*)subtype= url script-response-body https://github.com/DualSubs/Universal/releases/download/v1.7.5/Manifest.response.bundle.js
+^https?:\/\/vod-(.+)-(aoc|svod)\.tv\.apple\.com\/itunes-assets\/(.+)\/([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12})\/(.+)_subtitles_V\d\.m3u8\?(.*)subtype= url script-response-body https://github.com/DualSubs/Universal/releases/download/v1.7.5/Manifest.response.bundle.js
+# Composite Subtitles
+^https?:\/\/vod-(.+)-(aoc|svod)\.tv\.apple\.com\/itunes-assets\/(.+)\/([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12})\/(.+)\.webvtt\?(.*)subtype=(Official|External) url script-response-body https://github.com/DualSubs/Universal/releases/download/v1.7.5/Composite.Subtitles.response.bundle.js
+# Translate (Gemini)
 ^https?:\/\/vod-(.+)-(aoc|svod)\.tv\.apple\.com\/itunes-assets\/(.+)\/([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12})\/(.+)\.webvtt\?(.*)subtype=Translate url script-response-body https://github.com/1of1Adam/Universal/releases/download/v1.7.5-gemini/Translate.response.gemini.v2.bundle.js
 
-#[mitm]
-hostname = hls.itunes.apple.com, hls-svod.itunes.apple.com, vod-*.tv.apple.com
+# ========== Apple Fitness+ ==========
+# M3U8 Master
+^https?:\/\/(play|play-edge|hls)\.itunes\.apple\.com\/WebObjects\/(MZPlay|MZPlayLocal)\.woa\/hls\/workout\/playlist\.m3u8 url script-response-body https://github.com/DualSubs/Universal/releases/download/v1.7.5/Manifest.response.bundle.js
+# M3U8 Subtitles
+^https?:\/\/(hls|hls-svod)\.itunes\.apple\.com\/itunes-assets\/(.+)\/([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12})\/(.+)_subtitles_V\d\.m3u8 url script-response-body https://github.com/DualSubs/Universal/releases/download/v1.7.5/Manifest.response.bundle.js
+# Composite Subtitles
+^https?:\/\/(hls|hls-svod)\.itunes\.apple\.com\/itunes-assets\/(.+)\/([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12})\/(.+)\.webvtt\?(.*)subtype=(Official|External) url script-response-body https://github.com/DualSubs/Universal/releases/download/v1.7.5/Composite.Subtitles.response.bundle.js
+# Translate (Gemini)
+^https?:\/\/(hls|hls-svod)\.itunes\.apple\.com\/itunes-assets\/(.+)\/([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12})\/(.+)\.webvtt\?(.*)subtype=Translate url script-response-body https://github.com/1of1Adam/Universal/releases/download/v1.7.5-gemini/Translate.response.gemini.v2.bundle.js
 
+#[mitm]
+hostname = play.itunes.apple.com, play-edge.itunes.apple.com, hls.itunes.apple.com, hls-svod.itunes.apple.com, vod-*.tv.apple.com
