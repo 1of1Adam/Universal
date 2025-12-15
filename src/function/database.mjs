@@ -478,6 +478,11 @@ export default {
 				Endpoint: "",
 				Auth: "",
 			},
+			OpenAI: {
+				Endpoint: "http://192.168.31.203:8317",
+				Model: "gemini-3-pro-preview",
+				Auth: "dummy-not-used",
+			},
 			URL: "",
 			NeteaseMusic: {
 				PhoneNumber: "",

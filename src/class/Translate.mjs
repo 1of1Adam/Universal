@@ -446,81 +446,102 @@ export default class Translate {
 				return body?.data ?? `翻译失败, vendor: ${"DeepL"}`;
 			})
 			.catch(error => Promise.reject(error));
-	}
+		}
 
-	/**
-	 * OpenAI Compatible API Translation (支持 Gemini, Claude 等通过 OpenAI 兼容接口的模型)
-	 * @param {Array|String} text - 待翻译文本
-	 * @param {String} source - 源语言
-	 * @param {String} target - 目标语言
-	 * @param {Object} api - API 配置 (BaseURL, Auth, Model)
-	 * @return {Promise<Array>}
-	 */
-	async OpenAI(text = [], source = this.Source, target = this.Target, api = this.API) {
-		text = Array.isArray(text) ? text : [text];
-		source = this.#LanguagesCode.Google[source] ?? this.#LanguagesCode.Google[source?.split?.(/[-_]/)?.[0]] ?? source.toLowerCase();
-		target = this.#LanguagesCode.Google[target] ?? this.#LanguagesCode.Google[target?.split?.(/[-_]/)?.[0]] ?? target.toLowerCase();
-
-		const BaseURL = api?.BaseURL || api?.Endpoint || "http://192.168.31.203:8317/v1";
-		const Model = api?.Model || "gemini-3-pro-preview";
-		const Auth = api?.Auth || api?.Key || "dummy-not-used";
-
-		const request = {
-			url: `${BaseURL}/chat/completions`,
-			headers: {
+		/**
+		 * 支持所有 OpenAI API 兼容的服务，包括：
+		 * - OpenAI
+		 * - Gemini (通过 OpenAI 兼容端点)
+		 * - 本地部署的 LLM (如 Ollama, LMStudio, vLLM 等)
+		 * - 其他 OpenAI 兼容服务
+		 * @author DualSubs Modified
+		 */
+		async OpenAI(text = [], source = this.Source, target = this.Target, api = this.API) {
+			text = Array.isArray(text) ? text : [text];
+			// 语言代码转换为自然语言名称
+		const languageNames = {
+			AUTO: "the same language as the source",
+			ZH: "Chinese", "ZH-HANS": "Simplified Chinese", "ZH-HANT": "Traditional Chinese", "ZH-HK": "Traditional Chinese (Hong Kong)",
+			EN: "English", "EN-US": "American English", "EN-GB": "British English",
+			JA: "Japanese", KO: "Korean", DE: "German", FR: "French", ES: "Spanish",
+			PT: "Portuguese", IT: "Italian", RU: "Russian", AR: "Arabic", TH: "Thai",
+			VI: "Vietnamese", ID: "Indonesian", TR: "Turkish", PL: "Polish", NL: "Dutch",
+			DA: "Danish", FI: "Finnish", SV: "Swedish", NO: "Norwegian", CS: "Czech",
+			HU: "Hungarian", EL: "Greek", RO: "Romanian", SK: "Slovak", UK: "Ukrainian",
+			BG: "Bulgarian", HR: "Croatian", LT: "Lithuanian", SL: "Slovenian", ET: "Estonian", LV: "Latvian",
+		};
+			const targetLang = languageNames[target] ?? languageNames[target?.split?.(/[-_]/)?.[0]] ?? target;
+			const sourceLang = source === "AUTO" ? "" : (languageNames[source] ?? languageNames[source?.split?.(/[-_]/)?.[0]] ?? source);
+			
+			// 构建请求
+			const request = {};
+			const separator = "\n[LINE_BREAK]\n";
+			const baseURL = (api?.BaseURL ?? api?.Endpoint ?? "https://api.openai.com").replace(/\/+$/, "");
+			request.url = `${baseURL}/v1/chat/completions`;
+			request.headers = {
 				"Content-Type": "application/json",
 				"User-Agent": "DualSubs",
-			},
-			body: JSON.stringify({
-				model: Model,
+			};
+			// 添加认证头
+			if (api?.Auth) {
+				request.headers["Authorization"] = `Bearer ${api.Auth}`;
+			}
+			
+			// 构建翻译提示
+			const systemPrompt = `You are a professional subtitle translator. Translate the user's subtitles to ${targetLang}.
+Rules:
+1. Keep the translation natural and fluent.
+2. Maintain the original meaning and tone.
+3. Preserve HTML tags and special formatting exactly.
+4. Preserve line breaks and DO NOT merge/split lines.
+5. Output ONLY the translated text: no explanations, no numbering, no quotes, no code fences.
+6. Keep the separator "[LINE_BREAK]" exactly unchanged.
+${sourceLang ? `7. The source language is ${sourceLang}.` : ""}`;
+
+			const userContent = text.join(separator);
+			
+			request.body = JSON.stringify({
+				model: api?.Model ?? "gemini-3-pro-preview",
 				messages: [
-					{
-						role: "system",
-						content: `你是专业字幕翻译。将以下字幕从 ${source === "auto" ? "自动检测的语言" : source} 翻译为 ${target}。
-
-翻译原则：
-1. 语义精确但表达自然，像人说的话。按中文语序重组，不逐词替换。保留语气情绪。口头填充词可适当压缩。
-2. 结合上下文消歧义，保持术语、人物、情绪连贯。跨块句子自然衔接。
-3. 俚语双关文化梗用中文等效表达；无等效则说清意图，不硬译。不添加原文没有的信息。
-
-专有名词处理：
-1. 人名、地名、机构、品牌、软件、术语缩写、作品标题等：默认保留原文拼写与大小写，不确定时保留原文。
-2. 若有通行中文名，可用"中文名（原文）"或"原文（中文名）"，首次括注后保持一致。
-3. 作品标题可用《》标示，标题文本按上述规则处理。
-
-输出要求：
-1. 仅返回翻译后的文本，不要有任何其他内容
-2. 保留 HTML 标签和特殊格式
-3. 保持换行符位置不变
-4. 每行单独翻译但保持上下文连贯`,
-					},
-					{
-						role: "user",
-						content: text.join("\n[LINE_BREAK]\n"),
-					},
+					{ role: "system", content: systemPrompt },
+					{ role: "user", content: userContent }
 				],
 				temperature: 0.3,
 				max_tokens: 4096,
-			}),
-		};
-
-		if (Auth) {
-			request.headers.Authorization = `Bearer ${Auth}`;
-		}
-
-		return await fetch(request)
-			.then(response => {
-				const body = JSON.parse(response.body);
-				const translatedText = body?.choices?.[0]?.message?.content;
-				if (translatedText) {
-					// 按换行符分割返回结果
-					return translatedText.split("\n[LINE_BREAK]\n").map(line => line.trim());
-				}
-				return text.map(() => `翻译失败, vendor: OpenAI`);
-			})
-			.catch(error => {
-				Console.error(`OpenAI 翻译错误: ${error}`);
-				return Promise.reject(error);
 			});
+			
+			return await fetch(request)
+				.then(response => {
+					const body = JSON.parse(response.body);
+					if (body?.error) {
+						Console.error(`OpenAI API Error: ${body.error.message}`);
+						return text.map(() => `翻译失败: ${body.error.message}`);
+					}
+					const translatedText = body?.choices?.[0]?.message?.content;
+					if (!translatedText) {
+						return text.map(() => `翻译失败, vendor: OpenAI`);
+					}
+					let translatedLines = [];
+					if (translatedText.includes("[LINE_BREAK]")) {
+						translatedLines = translatedText.split(/\s*\[LINE_BREAK\]\s*/).map(line => line.trim());
+					} else {
+						// 回退：按行分割翻译结果
+						translatedLines = translatedText.trim().split(/\n/).map(line => line.trim());
+					}
+					// 确保返回的行数与输入相同
+					if (translatedLines.length === text.length) {
+						return translatedLines;
+					} else if (translatedLines.length > text.length) {
+						// 如果返回行数多，截取
+						return translatedLines.slice(0, text.length);
+					} else {
+						// 如果返回行数少，用原文补齐
+						return text.map((original, i) => translatedLines[i] ?? original);
+					}
+				})
+				.catch(error => {
+					Console.error(`OpenAI Translation Error: ${error}`);
+					return Promise.reject(error);
+				});
+		}
 	}
-}
