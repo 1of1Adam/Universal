@@ -448,15 +448,15 @@ export default class Translate {
 			.catch(error => Promise.reject(error));
 		}
 
-		/**
-		 * 支持所有 OpenAI API 兼容的服务，包括：
-		 * - OpenAI
-		 * - Gemini (通过 OpenAI 兼容端点)
-		 * - 本地部署的 LLM (如 Ollama, LMStudio, vLLM 等)
-		 * - 其他 OpenAI 兼容服务
-		 * @author DualSubs Modified
-		 */
-			async OpenAI(text = [], source = this.Source, target = this.Target, api = this.API) {
+			/**
+			 * 支持所有 OpenAI API 兼容的服务，包括：
+			 * - OpenAI
+			 * - Gemini (OpenAI 兼容端点 / Gemini 原生 generateContent 端点)
+			 * - 本地部署的 LLM (如 Ollama, LMStudio, vLLM 等)
+			 * - 其他 OpenAI 兼容服务
+			 * @author DualSubs Modified
+			 */
+				async OpenAI(text = [], source = this.Source, target = this.Target, api = this.API) {
 				text = Array.isArray(text) ? text : [text];
 				const now = Date.now();
 				const downUntil = Number(Storage.getItem("@DualSubs.Universal.Caches.OpenAI.DownUntil", 0) ?? 0);
@@ -475,16 +475,15 @@ export default class Translate {
 		};
 			const targetLang = languageNames[target] ?? languageNames[target?.split?.(/[-_]/)?.[0]] ?? target;
 			const sourceLang = source === "AUTO" ? "" : (languageNames[source] ?? languageNames[source?.split?.(/[-_]/)?.[0]] ?? source);
-			
-				// 构建请求
-				const request = {};
-				const separator = "\n[LINE_BREAK]\n";
-				const baseURL = (api?.BaseURL ?? api?.Endpoint ?? "https://api.openai.com").replace(/\/+$/, "");
-				request.url = `${baseURL}/v1/chat/completions`;
-				request.timeout = api?.Timeout ?? api?.timeout ?? 15000;
-				// 本地/LAN 地址默认走 DIRECT，避免被代理转发导致 192.168.* 无法访问而超时
-				if (/^https?:\/\/(localhost|127\\.0\\.0\\.1|10\\.|192\\.168\\.|172\\.(1[6-9]|2\\d|3[0-1])\\.)/i.test(baseURL)) {
-					request.policy = api?.Policy ?? api?.policy ?? "DIRECT";
+				
+					// 构建请求
+					const request = {};
+					const separator = "\n[LINE_BREAK]\n";
+					const baseURL = (api?.BaseURL ?? api?.Endpoint ?? "https://api.openai.com").replace(/\/+$/, "");
+					request.timeout = api?.Timeout ?? api?.timeout ?? 15000;
+					// 本地/LAN 地址默认走 DIRECT，避免被代理转发导致 192.168.* 无法访问而超时
+					if (/^https?:\/\/(localhost|127\\.0\\.0\\.1|10\\.|192\\.168\\.|172\\.(1[6-9]|2\\d|3[0-1])\\.)/i.test(baseURL)) {
+						request.policy = api?.Policy ?? api?.policy ?? "DIRECT";
 				}
 				request.headers = {
 					"Content-Type": "application/json",
@@ -506,29 +505,77 @@ Rules:
 6. Keep the separator "[LINE_BREAK]" exactly unchanged.
 ${sourceLang ? `7. The source language is ${sourceLang}.` : ""}`;
 
-			const userContent = text.join(separator);
-			
-			request.body = JSON.stringify({
-				model: api?.Model ?? "gemini-3-pro-preview",
-				messages: [
-					{ role: "system", content: systemPrompt },
-					{ role: "user", content: userContent }
-				],
-				temperature: 0.3,
-				max_tokens: 4096,
-			});
-			
-				return await fetch(request)
-					.then(response => {
-						const body = JSON.parse(response.body);
-						if (body?.error) {
-							Console.error(`OpenAI API Error: ${body.error.message}`);
-							return text.map(() => "");
-						}
-						const translatedText = body?.choices?.[0]?.message?.content;
-						if (!translatedText) {
-							return text.map(() => "");
-						}
+				const userContent = text.join(separator);
+
+				// 选择接口：OpenAI 兼容 /v1/chat/completions 或 Gemini 原生 /v1beta/models/*:generateContent
+				const isGeminiGenerateContent = /:generateContent$/i.test(baseURL) || /\/v1beta(\/|$)/i.test(baseURL);
+				if (isGeminiGenerateContent) {
+					const model = api?.Model ?? "gemini-3-pro-preview";
+					// 兼容：用户可能填写了完整路径或仅填写了 host
+					if (/:generateContent$/i.test(baseURL)) {
+						request.url = baseURL;
+					} else if (/\/v1beta\/models\/[^/]+$/i.test(baseURL)) {
+						request.url = `${baseURL}:generateContent`;
+					} else if (/\/v1beta\/models$/i.test(baseURL)) {
+						request.url = `${baseURL}/${encodeURIComponent(model)}:generateContent`;
+					} else if (/\/v1beta$/i.test(baseURL)) {
+						request.url = `${baseURL}/models/${encodeURIComponent(model)}:generateContent`;
+					} else {
+						request.url = `${baseURL}/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+					}
+
+					// Gemini 原生请求体（尽量保持兼容；不使用 systemInstruction 避免字段名差异导致 400）
+					request.body = JSON.stringify({
+						contents: [
+							{
+								role: "user",
+								parts: [
+									{
+										text: `${systemPrompt}\n\n${userContent}`,
+									},
+								],
+							},
+						],
+						generationConfig: {
+							temperature: 0.3,
+							maxOutputTokens: 4096,
+						},
+					});
+				} else {
+					// OpenAI 兼容：用户可能填写了 https://xxx/v1 或 https://xxx/v1/chat/completions
+					if (/\/v1\/chat\/completions$/i.test(baseURL) || /\/chat\/completions$/i.test(baseURL)) {
+						request.url = baseURL;
+					} else if (/\/v1$/i.test(baseURL)) {
+						request.url = `${baseURL}/chat/completions`;
+					} else {
+						request.url = `${baseURL}/v1/chat/completions`;
+					}
+
+					request.body = JSON.stringify({
+						model: api?.Model ?? "gemini-3-pro-preview",
+						messages: [
+							{ role: "system", content: systemPrompt },
+							{ role: "user", content: userContent },
+						],
+						temperature: 0.3,
+						max_tokens: 4096,
+					});
+				}
+				
+					return await fetch(request)
+						.then(response => {
+							const body = JSON.parse(response.body);
+							if (body?.error) {
+								Console.error(`OpenAI API Error: ${body.error.message}`);
+								return text.map(() => "");
+							}
+							const translatedText =
+								body?.choices?.[0]?.message?.content ??
+								body?.candidates?.[0]?.content?.parts?.map?.(p => p?.text ?? "").join("") ??
+								body?.candidates?.[0]?.content?.parts?.[0]?.text;
+							if (!translatedText) {
+								return text.map(() => "");
+							}
 						let translatedLines = [];
 						if (translatedText.includes("[LINE_BREAK]")) {
 							translatedLines = translatedText.split(/\s*\[LINE_BREAK\]\s*/).map(line => line.trim());

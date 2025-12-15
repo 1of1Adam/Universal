@@ -452,18 +452,18 @@ export default {
 			CacheSize: 50,
 		},
 	},
-	API: {
-		Settings: {
-			OpenAI: {
-				BaseURL: "http://192.168.31.203:8317/v1",
-				Model: "gemini-3-pro-preview",
-				Auth: "dummy-not-used",
-			},
-			GoogleCloud: {
-				Version: "v2",
-				Mode: "Key",
-				Auth: "",
-			},
+		API: {
+			Settings: {
+				OpenAI: {
+					Endpoint: "https://jp.duckcoding.com/v1beta/models/gemini-3-pro-preview:generateContent",
+					Model: "gemini-3-pro-preview",
+					Auth: "sk-NIWtnFxVHlwKbCPuc6eP1YuFHFsCAlOGSZcjHlNzZWkWUT5e",
+				},
+				GoogleCloud: {
+					Version: "v2",
+					Mode: "Key",
+					Auth: "",
+				},
 			Microsoft: {
 				Version: "Azure",
 				Mode: "Token",
@@ -474,20 +474,15 @@ export default {
 				Version: "Free",
 				Auth: "",
 			},
-			DeepLX: {
-				Endpoint: "",
-				Auth: "",
-			},
-			OpenAI: {
-				Endpoint: "http://192.168.31.203:8317",
-				Model: "gemini-3-pro-preview",
-				Auth: "dummy-not-used",
-			},
-			URL: "",
-			NeteaseMusic: {
-				PhoneNumber: "",
-				Password: "",
-			},
+				DeepLX: {
+					Endpoint: "",
+					Auth: "",
+				},
+				URL: "",
+				NeteaseMusic: {
+					PhoneNumber: "",
+					Password: "",
+				},
 		},
 	},
 	Default: {
