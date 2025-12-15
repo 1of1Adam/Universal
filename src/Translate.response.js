@@ -294,6 +294,9 @@ async function Translator(vendor = "Google", method = "Part", text = [], [source
 		case "DeepLX":
 			length = 20;
 			break;
+		case "OpenAI":
+			length = 50;
+			break;
 	}
 	let Translation = [];
 	switch (method) {
