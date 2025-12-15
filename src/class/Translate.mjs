@@ -456,10 +456,10 @@ export default class Translate {
 		 * - 其他 OpenAI 兼容服务
 		 * @author DualSubs Modified
 		 */
-		async OpenAI(text = [], source = this.Source, target = this.Target, api = this.API) {
-			text = Array.isArray(text) ? text : [text];
-			// 语言代码转换为自然语言名称
-		const languageNames = {
+			async OpenAI(text = [], source = this.Source, target = this.Target, api = this.API) {
+				text = Array.isArray(text) ? text : [text];
+				// 语言代码转换为自然语言名称
+			const languageNames = {
 			AUTO: "the same language as the source",
 			ZH: "Chinese", "ZH-HANS": "Simplified Chinese", "ZH-HANT": "Traditional Chinese", "ZH-HK": "Traditional Chinese (Hong Kong)",
 			EN: "English", "EN-US": "American English", "EN-GB": "British English",
@@ -473,15 +473,16 @@ export default class Translate {
 			const targetLang = languageNames[target] ?? languageNames[target?.split?.(/[-_]/)?.[0]] ?? target;
 			const sourceLang = source === "AUTO" ? "" : (languageNames[source] ?? languageNames[source?.split?.(/[-_]/)?.[0]] ?? source);
 			
-			// 构建请求
-			const request = {};
-			const separator = "\n[LINE_BREAK]\n";
-			const baseURL = (api?.BaseURL ?? api?.Endpoint ?? "https://api.openai.com").replace(/\/+$/, "");
-			request.url = `${baseURL}/v1/chat/completions`;
-			request.headers = {
-				"Content-Type": "application/json",
-				"User-Agent": "DualSubs",
-			};
+				// 构建请求
+				const request = {};
+				const separator = "\n[LINE_BREAK]\n";
+				const baseURL = (api?.BaseURL ?? api?.Endpoint ?? "https://api.openai.com").replace(/\/+$/, "");
+				request.url = `${baseURL}/v1/chat/completions`;
+				request.timeout = api?.Timeout ?? api?.timeout ?? 15000;
+				request.headers = {
+					"Content-Type": "application/json",
+					"User-Agent": "DualSubs",
+				};
 			// 添加认证头
 			if (api?.Auth) {
 				request.headers["Authorization"] = `Bearer ${api.Auth}`;
@@ -510,21 +511,21 @@ ${sourceLang ? `7. The source language is ${sourceLang}.` : ""}`;
 				max_tokens: 4096,
 			});
 			
-			return await fetch(request)
-				.then(response => {
-					const body = JSON.parse(response.body);
-					if (body?.error) {
-						Console.error(`OpenAI API Error: ${body.error.message}`);
-						return text.map(() => `翻译失败: ${body.error.message}`);
-					}
-					const translatedText = body?.choices?.[0]?.message?.content;
-					if (!translatedText) {
-						return text.map(() => `翻译失败, vendor: OpenAI`);
-					}
-					let translatedLines = [];
-					if (translatedText.includes("[LINE_BREAK]")) {
-						translatedLines = translatedText.split(/\s*\[LINE_BREAK\]\s*/).map(line => line.trim());
-					} else {
+				return await fetch(request)
+					.then(response => {
+						const body = JSON.parse(response.body);
+						if (body?.error) {
+							Console.error(`OpenAI API Error: ${body.error.message}`);
+							return text.map(() => "");
+						}
+						const translatedText = body?.choices?.[0]?.message?.content;
+						if (!translatedText) {
+							return text.map(() => "");
+						}
+						let translatedLines = [];
+						if (translatedText.includes("[LINE_BREAK]")) {
+							translatedLines = translatedText.split(/\s*\[LINE_BREAK\]\s*/).map(line => line.trim());
+						} else {
 						// 回退：按行分割翻译结果
 						translatedLines = translatedText.trim().split(/\n/).map(line => line.trim());
 					}
@@ -534,14 +535,15 @@ ${sourceLang ? `7. The source language is ${sourceLang}.` : ""}`;
 					} else if (translatedLines.length > text.length) {
 						// 如果返回行数多，截取
 						return translatedLines.slice(0, text.length);
-					} else {
-						// 如果返回行数少，用原文补齐
-						return text.map((original, i) => translatedLines[i] ?? original);
-					}
-				})
-				.catch(error => {
-					Console.error(`OpenAI Translation Error: ${error}`);
-					return Promise.reject(error);
-				});
+						} else {
+							// 如果返回行数少，用原文补齐
+							return text.map((original, i) => translatedLines[i] ?? "");
+						}
+					})
+					.catch(error => {
+						Console.error(`OpenAI Translation Error: ${error}`);
+						if (`${error}`.toLowerCase().includes("timeout")) return text.map(() => "");
+						return Promise.reject(error);
+					});
+			}
 		}
-	}

@@ -395,6 +395,8 @@ async function Translator(vendor = "OpenAI", method = "Part", text = [], [source
  * @return {String} combined text
  */
 function combineText(originText, transText, ShowOnly = false, position = "Forward", lineBreak = "\n") {
+	// 翻译为空时直接返回原文，避免阻塞字幕显示或产生多余空行
+	if (!transText) return ShowOnly ? (transText ?? "") : originText;
 	let text = "";
 	switch (ShowOnly) {
 		case true:
