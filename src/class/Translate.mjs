@@ -1,4 +1,4 @@
-import { Console, fetch } from "@nsnanocat/util";
+import { Console, fetch, Storage } from "@nsnanocat/util";
 import MD5 from "crypto-js/md5.js";
 
 export default class Translate {
@@ -458,6 +458,9 @@ export default class Translate {
 		 */
 			async OpenAI(text = [], source = this.Source, target = this.Target, api = this.API) {
 				text = Array.isArray(text) ? text : [text];
+				const now = Date.now();
+				const downUntil = Number(Storage.getItem("@DualSubs.Universal.Caches.OpenAI.DownUntil", 0) ?? 0);
+				if (now < downUntil) return text.map(() => "");
 				// 语言代码转换为自然语言名称
 			const languageNames = {
 			AUTO: "the same language as the source",
@@ -479,6 +482,10 @@ export default class Translate {
 				const baseURL = (api?.BaseURL ?? api?.Endpoint ?? "https://api.openai.com").replace(/\/+$/, "");
 				request.url = `${baseURL}/v1/chat/completions`;
 				request.timeout = api?.Timeout ?? api?.timeout ?? 15000;
+				// 本地/LAN 地址默认走 DIRECT，避免被代理转发导致 192.168.* 无法访问而超时
+				if (/^https?:\/\/(localhost|127\\.0\\.0\\.1|10\\.|192\\.168\\.|172\\.(1[6-9]|2\\d|3[0-1])\\.)/i.test(baseURL)) {
+					request.policy = api?.Policy ?? api?.policy ?? "DIRECT";
+				}
 				request.headers = {
 					"Content-Type": "application/json",
 					"User-Agent": "DualSubs",
@@ -542,7 +549,10 @@ ${sourceLang ? `7. The source language is ${sourceLang}.` : ""}`;
 					})
 					.catch(error => {
 						Console.error(`OpenAI Translation Error: ${error}`);
-						if (`${error}`.toLowerCase().includes("timeout")) return text.map(() => "");
+						if (`${error}`.toLowerCase().includes("timeout")) {
+							Storage.setItem("@DualSubs.Universal.Caches.OpenAI.DownUntil", now + 60 * 1000);
+							return text.map(() => "");
+						}
 						return Promise.reject(error);
 					});
 			}
